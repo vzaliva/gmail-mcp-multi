@@ -1,0 +1,40 @@
+{
+  "name": "gmail-mcp-multi",
+  "version": "0.1.0",
+  "description": "A Gmail MCP server with native multi-account support",
+  "main": "dist/index.js",
+  "bin": {
+    "gmail-mcp-multi": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "auth": "node dist/auth.js"
+  },
+  "keywords": [
+    "mcp",
+    "gmail",
+    "email",
+    "model-context-protocol",
+    "claude",
+    "anthropic"
+  ],
+  "author": "Elle Morrill",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dmorrill/gmail-mcp-multi.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "googleapis": "^140.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
