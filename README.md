@@ -104,13 +104,20 @@ Credentials are stored in `~/.gmail-mcp/`:
 ```
 ~/.gmail-mcp/
 ├── config.json           # Account aliases and settings
-├── oauth-keys.json       # Your Google OAuth app credentials
+├── oauth-keys.json       # Default Google OAuth app credentials
 └── accounts/
     ├── work/
+    │   ├── oauth-keys.json    # Optional: per-account OAuth client
     │   └── credentials.json
     └── personal/
         └── credentials.json
 ```
+
+For each account, `oauth-keys.json` is looked up first in the account
+directory and falls back to the top-level `~/.gmail-mcp/oauth-keys.json`.
+This lets you mix accounts that belong to different Google Cloud
+projects or Workspace organizations — useful when one organization's
+admin won't whitelist a third-party OAuth client owned by another.
 
 ## Development
 
