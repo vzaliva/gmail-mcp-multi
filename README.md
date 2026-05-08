@@ -53,6 +53,25 @@ Create `~/.gmail-mcp/oauth-keys.json` with your OAuth credentials.
 }
 ```
 
+#### Read-only mode
+
+Pass `--readonly` (or set `GMAIL_MCP_READONLY=1`) to disable every mutating
+tool — `send_email`, `modify_email`, and any future delete/label-edit tools.
+Only search/read/list operations remain available, both in the advertised tool
+list and at dispatch time. Useful when handing the server to an autonomous
+agent:
+
+```json
+{
+  "mcpServers": {
+    "gmail-readonly": {
+      "command": "npx",
+      "args": ["gmail-mcp-multi", "--readonly"]
+    }
+  }
+}
+```
+
 ### 4. Authenticate accounts
 
 Authentication runs as a one-off Node script (it needs to open a browser and
@@ -87,6 +106,8 @@ search_emails({ account: "personal", query: "from:mom" })
 ## Tools
 
 All tools that interact with Gmail require an `account` parameter (alias or email).
+
+> Tools that mutate the mailbox (send, modify, delete, label edits) are filtered out when the server is started with `--readonly`.
 
 ### Account Management
 | Tool | Description |
