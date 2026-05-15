@@ -1,8 +1,12 @@
 # Dependencies
 node_modules/
+package-lock.json
 
 # Build output
 dist/
+
+# Claude Code per-project state
+.claude/
 
 # Credentials (never commit these!)
 credentials.json
