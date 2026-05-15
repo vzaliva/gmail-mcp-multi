@@ -1,4 +1,9 @@
-import { Tool, CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Tool,
+  CallToolRequest,
+  CallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
+import * as fs from "fs";
 import { AccountManager } from "../accounts.js";
 import { GmailClient } from "../gmail.js";
 
@@ -158,6 +163,46 @@ const ALL_TOOLS: AnnotatedTool[] = [
     },
     mutates: true,
   },
+  {
+    name: "get_attachment",
+    description:
+      "Download the binary body of a Gmail attachment. Returns the bytes as a base64 blob, or writes them to disk if savePath is provided. The attachmentId is obtained from a prior read_email call (payload.parts[*].body.attachmentId).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        account: {
+          type: "string",
+          description: "Account alias or email to use",
+        },
+        messageId: {
+          type: "string",
+          description: "The ID of the email message",
+        },
+        attachmentId: {
+          type: "string",
+          description:
+            "The attachment ID from payload.parts[*].body.attachmentId in a read_email response",
+        },
+        savePath: {
+          type: "string",
+          description:
+            "Optional absolute filesystem path. If provided, decoded bytes are written to this path instead of being returned inline. Recommended for large attachments.",
+        },
+        filename: {
+          type: "string",
+          description:
+            "Optional filename to include in the returned metadata (cosmetic; does not affect what is fetched)",
+        },
+        mimeType: {
+          type: "string",
+          description:
+            "Optional MIME type to tag the returned resource (defaults to application/octet-stream)",
+        },
+      },
+      required: ["account", "messageId", "attachmentId"],
+    },
+    mutates: false,
+  },
 ];
 
 export function getTools(readOnly: boolean): Tool[] {
@@ -171,7 +216,7 @@ export async function handleToolCall(
   accountManager: AccountManager,
   gmailClient: GmailClient,
   readOnly: boolean
-): Promise<{ content: Array<{ type: "text"; text: string }> }> {
+): Promise<CallToolResult> {
   const { name, arguments: args } = request.params;
 
   const tool = ALL_TOOLS.find((t) => t.name === name);
@@ -274,6 +319,90 @@ export async function handleToolCall(
         return {
           content: [
             { type: "text", text: JSON.stringify(response.data, null, 2) },
+          ],
+        };
+      }
+
+      case "get_attachment": {
+        const {
+          account,
+          messageId,
+          attachmentId,
+          savePath,
+          filename,
+          mimeType,
+        } = args as {
+          account: string;
+          messageId: string;
+          attachmentId: string;
+          savePath?: string;
+          filename?: string;
+          mimeType?: string;
+        };
+        const client = await gmailClient.getClient(account);
+        const response = await client.users.messages.attachments.get({
+          userId: "me",
+          messageId,
+          id: attachmentId,
+        });
+        const dataB64Url = response.data.data;
+        if (!dataB64Url) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Attachment ${attachmentId} on message ${messageId} returned no data.`,
+              },
+            ],
+          };
+        }
+        const buf = Buffer.from(dataB64Url, "base64url");
+        const resolvedMime = mimeType || "application/octet-stream";
+        const resolvedName = filename || `attachment-${attachmentId}`;
+
+        if (savePath) {
+          fs.writeFileSync(savePath, buf);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    savedTo: savePath,
+                    bytesWritten: buf.length,
+                    mimeType: resolvedMime,
+                    filename: resolvedName,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  filename: resolvedName,
+                  mimeType: resolvedMime,
+                  size: buf.length,
+                },
+                null,
+                2
+              ),
+            },
+            {
+              type: "resource",
+              resource: {
+                uri: `gmail-attachment:${messageId}:${attachmentId}`,
+                mimeType: resolvedMime,
+                blob: buf.toString("base64"),
+              },
+            },
           ],
         };
       }

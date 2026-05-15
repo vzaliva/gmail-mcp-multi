@@ -120,6 +120,7 @@ All tools that interact with Gmail require an `account` parameter (alias or emai
 |------|-------------|
 | `search_emails` | Search emails using Gmail query syntax |
 | `read_email` | Get full content of an email by ID |
+| `get_attachment` | Download an attachment's binary body (see "Attachments" below) |
 | `send_email` | Send a new email |
 | `draft_email` | Create a draft |
 | `modify_email` | Add/remove labels, mark read/unread |
@@ -133,6 +134,50 @@ All tools that interact with Gmail require an `account` parameter (alias or emai
 | `list_labels` | Get all labels for an account |
 | `create_label` | Create a new label |
 | `delete_label` | Delete a label |
+
+### Attachments
+
+`read_email` returns the full Gmail message payload including the recursive
+MIME part tree. Each part that has an external attachment exposes a
+`body.attachmentId`. Pass that ID to `get_attachment` to download the bytes:
+
+```
+# 1. Find the message and read it
+read_email({ account: "work", messageId: "<id>" })
+
+# 2. Walk payload.parts, locate the PDF (mimeType "application/pdf"),
+#    grab its body.attachmentId, then either:
+
+# a) Write the file directly to disk (recommended for large attachments)
+get_attachment({
+  account: "work",
+  messageId: "<id>",
+  attachmentId: "<id>",
+  savePath: "/tmp/report.pdf",
+  filename: "report.pdf",
+  mimeType: "application/pdf"
+})
+
+# b) Receive the bytes inline as a base64 resource block
+get_attachment({
+  account: "work",
+  messageId: "<id>",
+  attachmentId: "<id>",
+  filename: "photo.jpg",
+  mimeType: "image/jpeg"
+})
+```
+
+When `savePath` is omitted the tool returns two content blocks: a JSON text
+block with `{ filename, mimeType, size }` and an MCP `resource` block whose
+`blob` field is standard base64. The resource `uri` is an opaque identifier
+of the form `gmail-attachment:<messageId>:<attachmentId>` and is not
+dereferenceable — the bytes are in the `blob` field.
+
+Note: very small attachments are sometimes inlined by Gmail directly into
+`payload.parts[i].body.data` with no `attachmentId`. Those bytes are already
+present in the `read_email` response (also base64url-encoded) and don't need
+a separate `get_attachment` call.
 
 ## Configuration
 
