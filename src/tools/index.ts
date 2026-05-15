@@ -198,6 +198,12 @@ const ALL_TOOLS: AnnotatedTool[] = [
           description:
             "Optional MIME type to tag the returned resource (defaults to application/octet-stream)",
         },
+        format: {
+          type: "string",
+          enum: ["resource", "text"],
+          description:
+            "How to return the bytes when savePath is not set. \"resource\" (default) returns an MCP EmbeddedResource block with a base64 blob — the spec-compliant shape. \"text\" embeds the base64 inside a single JSON text block; use this when the MCP client mis-routes binary resource blocks (e.g. Claude.ai currently rejects application/pdf in this path). Ignored when savePath is set.",
+        },
       },
       required: ["account", "messageId", "attachmentId"],
     },
@@ -331,6 +337,7 @@ export async function handleToolCall(
           savePath,
           filename,
           mimeType,
+          format,
         } = args as {
           account: string;
           messageId: string;
@@ -338,6 +345,7 @@ export async function handleToolCall(
           savePath?: string;
           filename?: string;
           mimeType?: string;
+          format?: string;
         };
         const client = await gmailClient.getClient(account);
         const response = await client.users.messages.attachments.get({
@@ -372,6 +380,26 @@ export async function handleToolCall(
                     bytesWritten: buf.length,
                     mimeType: resolvedMime,
                     filename: resolvedName,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        if (format === "text") {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    filename: resolvedName,
+                    mimeType: resolvedMime,
+                    size: buf.length,
+                    base64: buf.toString("base64"),
                   },
                   null,
                   2

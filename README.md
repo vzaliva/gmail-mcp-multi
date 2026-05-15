@@ -168,11 +168,36 @@ get_attachment({
 })
 ```
 
-When `savePath` is omitted the tool returns two content blocks: a JSON text
-block with `{ filename, mimeType, size }` and an MCP `resource` block whose
-`blob` field is standard base64. The resource `uri` is an opaque identifier
-of the form `gmail-attachment:<messageId>:<attachmentId>` and is not
-dereferenceable — the bytes are in the `blob` field.
+When `savePath` is omitted the tool returns the bytes inline. By default
+(`format: "resource"`) the response has two content blocks: a JSON text
+block with `{ filename, mimeType, size }` and an MCP `EmbeddedResource`
+whose `blob` field is standard base64. The resource `uri` is an opaque
+identifier of the form `gmail-attachment:<messageId>:<attachmentId>` and is
+not dereferenceable — the bytes are in the `blob` field.
+
+Some MCP clients mis-route `EmbeddedResource` blocks containing
+non-image binary (Claude.ai, for example, currently funnels them through
+an `image` content-block validator that rejects `application/pdf`). For
+those clients, pass `format: "text"` to get a single text block instead:
+
+```
+get_attachment({
+  account: "work",
+  messageId: "<id>",
+  attachmentId: "<id>",
+  filename: "report.pdf",
+  mimeType: "application/pdf",
+  format: "text"
+})
+```
+
+The response is then `[{ type: "text", text: JSON.stringify({ filename, mimeType, size, base64 }) }]` — the consumer parses the JSON and base64-decodes the `base64` field. `format` is ignored when `savePath` is set; unknown `format` values fall through to the default `"resource"` behavior.
+
+When chatting with Claude on a client that exhibits this mis-routing, tell the model up front, e.g.:
+
+> "Use `get_attachment` with `format: "text"`, then parse the JSON and base64-decode the `base64` field to access the bytes."
+
+The model will pick the right call shape and decode the payload in its own code-execution sandbox (writing to `/tmp` inside its container, not on your machine).
 
 Note: very small attachments are sometimes inlined by Gmail directly into
 `payload.parts[i].body.data` with no `attachmentId`. Those bytes are already
